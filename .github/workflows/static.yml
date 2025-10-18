@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSEB Smart Energy Guardian</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: #111827;
+            --card-bg: #1F2937;
+            --primary-text: #F9FAFB;
+            --secondary-text: #9CA3AF;
+            --accent-blue: #38BDF8;
+            --accent-green: #34D399;
+            --accent-red: #F87171;
+            --accent-yellow: #FBBF24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--primary-text);
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-item.active {
+            color: var(--accent-blue);
+        }
+        .nav-item.active svg {
+            stroke: var(--accent-blue);
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        #realtime-usage-value {
+            text-shadow: 0 0 20px var(--accent-green);
+        }
+        .form-input {
+            background-color: #374151;
+            border: 1px solid #4B5563;
+            color: var(--primary-text);
+            border-radius: 8px;
+        }
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: #111827;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #7dd3fc;
+        }
+        .btn-secondary {
+             background-color: #374151;
+             color: var(--primary-text);
+             border: 1px solid #4B5563;
+        }
+        .btn-secondary:hover {
+            background-color: #4B5563;
+        }
+        .btn-danger {
+            background-color: var(--accent-red);
+            color: #111827;
+        }
+        .btn-danger:hover {
+            background-color: #fb9292;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .alert-banner {
+            animation: fadeIn 0.5s ease-out;
+        }
+        /* Styles for login screen */
+        #login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24">
+
+    <!-- NEW: Login Screen -->
+    <div id="login-screen">
+        <div class="w-full max-w-sm">
+            <div class="card p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-2xl font-bold">Smart Energy Guardian</h1>
+                    <p class="text-gray-400">Please sign in to continue</p>
+                </div>
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label for="consumer-number" class="block text-sm font-medium text-gray-300 mb-1">13-Digit Consumer Number</label>
+                        <input type="text" id="consumer-number" class="w-full p-3 form-input" placeholder="Enter your consumer number" maxlength="13" pattern="\d{13}" required>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                        <input type="password" id="password" class="w-full p-3 form-input" placeholder="••••••••" required>
+                    </div>
+                     <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                    <button type="submit" class="w-full btn-primary !mt-8">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container (Initially hidden) -->
+    <div id="app-container" class="hidden">
+        <!-- Header Section -->
+        <header class="p-4 flex justify-between items-center container mx-auto sticky top-0 bg-gray-900/50 backdrop-blur-sm z-10">
+            <div>
+                <p id="time-of-day-status" class="text-sm font-bold text-gray-400">Normal Hours</p>
+                <h1 class="text-xl font-bold">Smart Energy Guardian</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                 <span id="connection-status" class="text-sm font-medium flex items-center bg-green-500/20 text-green-300 px-3 py-1 rounded-full">
+                    <i data-lucide="wifi" class="h-4 w-4 mr-2"></i>Live
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4">
+            <!-- Alert Container -->
+            <div id="alert-container" class="my-4 space-y-2"></div>
+
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active space-y-6">
+                <div class="card text-center py-8">
+                    <p class="text-gray-400 text-sm mb-2">REAL-TIME USAGE</p>
+                    <div class="relative inline-block">
+                        <p id="realtime-usage-value" class="text-6xl font-bold text-green-300">---</p>
+                        <p class="absolute bottom-2 -right-8 font-semibold text-gray-300">kW</p>
+                    </div>
+                     <div class="h-32 -mt-4"><canvas id="realtimeUsageChart"></canvas></div>
+                </div>
+
+                <div id="solar-card" class="card">
+                     <h2 class="font-semibold mb-4 text-gray-300 flex items-center"><i data-lucide="sun" class="h-5 w-5 mr-2 text-yellow-400"></i>Solar Generation</h2>
+                     <div class="grid grid-cols-3 gap-4 text-center">
+                         <div><p class="text-xs text-gray-400">Generated</p><p id="solar-generated" class="text-xl font-bold text-green-400">-- kWh</p></div>
+                         <div><p class="text-xs text-gray-400">Exported (Sold)</p><p id="solar-exported" class="text-xl font-bold text-blue-400">-- kWh</p><p id="solar-exported-value" class="text-xs font-semibold text-blue-300">₹--</p></div>
+                         <div><p class="text-xs text-gray-400">Imported (Bought)</p><p id="solar-imported" class="text-xl font-bold text-red-400">-- kWh</p><p id="solar-imported-value" class="text-xs font-semibold text-red-300">₹--</p></div>
+                     </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="font-semibold mb-4 text-gray-300">Time-of-Day Usage (Today)</h2>
+                    <div class="space-y-4"><div><div class="flex justify-between text-sm mb-1"><span>Peak (6pm-10pm)</span><span id="tod-peak-value" class="font-medium">-- kWh</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div id="tod-peak-bar" class="bg-red-500 h-2.5 rounded-full" style="width: 0%"></div></div></div><div><div class="flex justify-between text-sm mb-1"><span>Normal (6am-6pm)</span><span id="tod-normal-value" class="font-medium">-- kWh</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div id="tod-normal-bar" class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div></div></div><div><div class="flex justify-between text-sm mb-1"><span>Off-Peak (10pm-6am)</span><span id="tod-offpeak-value" class="font-medium">-- kWh</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div id="tod-offpeak-bar" class="bg-green-500 h-2.5 rounded-full" style="width: 0%"></div></div></div></div>
+                </div>
+                
+                <div class="card"><h2 class="font-semibold mb-4 text-gray-300">This Month's Consumption</h2><div class="flex justify-between items-baseline"><span class="text-gray-400">Total Units:</span><span id="monthly-consumption-value" class="text-2xl font-bold text-yellow-300">--- kWh</span></div><div class="w-full bg-gray-700 rounded-full h-2.5 mt-4"><div id="monthly-consumption-bar" class="bg-yellow-400 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div></div><p id="next-slab-text" class="text-xs text-right text-gray-500 mt-1">Next Slab at 100 kWh</p></div>
+                <div class="card"><h2 class="font-semibold mb-4 text-gray-300">Appliance Breakdown</h2><div class="grid grid-cols-2 gap-4"><div class="h-40"><canvas id="applianceBreakdownChart"></canvas></div><div id="appliance-legend" class="flex flex-col justify-center space-y-2 text-sm"></div></div></div>
+                <div class="card"><h2 class="font-semibold mb-4 text-gray-300">Billing Information</h2><div class="space-y-2"><div class="flex justify-between items-baseline"><span class="text-gray-400">Current Bill:</span><span class="text-2xl font-bold" id="billing-current-bill">₹--</span></div><div class="flex justify-between"><span class="text-gray-400">Due Date:</span><span id="billing-due-date">--</span></div><div class="flex justify-between"><span class="text-gray-400">Projected Cost:</span><span>₹1800 - ₹2000</span></div></div></div>
+                <div class="card"><h2 class="font-semibold mb-4 text-gray-300">Daily Consumption (Last 30 Days)</h2><div class="h-64"><canvas id="dailyConsumptionChart"></canvas></div></div>
+            </div>
+            
+            <div id="pay-bill-page" class="page space-y-6"> <div class="card"> <h2 class="text-2xl font-bold mb-2 text-center">Pay Your Electricity Bill</h2> <div class="text-center mb-6"> <p class="text-4xl font-bold text-accent-blue" id="payment-amount">₹--</p> <p class="text-sm text-gray-400" id="payment-due-date">Due by --</p> </div> <form id="payment-form" class="space-y-4"> <div> <label for="payment-method" class="block text-sm font-medium text-gray-300 mb-1">Payment Method</label> <select id="payment-method" class="w-full p-3 form-input"> <option value="upi">UPI</option> <option value="card">Credit/Debit Card</option> <option value="netbanking">Net Banking</option> </select> </div> <div id="upi-details"> <label for="upi-id" class="block text-sm font-medium text-gray-300 mb-1">UPI ID</label> <input type="text" id="upi-id" class="w-full p-3 form-input" placeholder="yourname@bank"> </div> <div id="card-details" class="hidden space-y-4"> <div> <label for="card-number" class="block text-sm font-medium text-gray-300 mb-1">Card Number</label> <input type="text" id="card-number" class="w-full p-3 form-input" placeholder="•••• •••• •••• ••••"> </div> <div class="grid grid-cols-2 gap-4"> <div> <label for="expiry-date" class="block text-sm font-medium text-gray-300 mb-1">Expiry (MM/YY)</label> <input type="text" id="expiry-date" class="w-full p-3 form-input" placeholder="MM/YY"> </div> <div> <label for="cvv" class="block text-sm font-medium text-gray-300 mb-1">CVV</label> <input type="text" id="cvv" class="w-full p-3 form-input" placeholder="•••"> </div> </div> </div> <button type="submit" class="w-full btn-primary !mt-6 flex items-center justify-center"> <i data-lucide="lock" class="h-4 w-4 mr-2"></i> Pay Securely </button> </form> </div> </div>
+            <div id="recommendations-page" class="page space-y-6"> <div class="card"> <h2 class="text-2xl font-bold mb-4 text-center">Recommendations</h2> <p class="text-center text-gray-400 mb-6">Help KSEB improve its services.</p> <form id="recommendation-form" class="space-y-4"> <div> <label for="rec-category" class="block text-sm font-medium text-gray-300 mb-1">Category</label> <select id="rec-category" class="w-full p-3 form-input"> <option>Billing & Payments</option> <option>Meter Technology</option> <option>Customer Service</option> <option>Power Quality</option> <option>Other</option> </select> </div> <div> <label for="recommendation-text" class="block text-sm font-medium text-gray-300 mb-1">Your Recommendation</label> <textarea id="recommendation-text" rows="5" class="w-full p-3 form-input" placeholder="Please describe your suggestion..."></textarea> </div> <button type="submit" class="w-full btn-primary">Submit Recommendation</button> </form> </div> </div>
+            <div id="complaints-page" class="page space-y-6"> <div class="card"> <h2 class="text-2xl font-bold mb-4 text-center">Lodge a Complaint</h2> <p class="text-center text-gray-400 mb-6">Facing an issue? Let us know.</p> <form id="complaint-form" class="space-y-4"> <div> <label for="complaint-type" class="block text-sm font-medium text-gray-300 mb-1">Complaint Type</label> <select id="complaint-type" class="w-full p-3 form-input"> <option>No Power Supply</option> <option>Billing Error</option> <option>Meter Faulty</option> <option>Voltage Fluctuation</option> <option>Other</option> </select> </div> <div> <label for="consumer-id-complaint" class="block text-sm font-medium text-gray-300 mb-1">Consumer ID</label> <input type="text" id="consumer-id-complaint" class="w-full p-3 form-input" placeholder="Enter your 13-digit Consumer ID"> </div> <div> <label for="complaint-details" class="block text-sm font-medium text-gray-300 mb-1">Details</label> <textarea id="complaint-details" rows="5" class="w-full p-3 form-input" placeholder="Describe the issue..."></textarea> </div> <button type="submit" class="w-full btn-primary">File Complaint</button> </form> </div> </div>
+
+            <div id="settings-page" class="page space-y-6">
+                <form id="settings-form">
+                    <div class="card"><h2 class="text-xl font-bold mb-4">Tariff Settings</h2><p class="text-sm text-gray-400 mb-6">Update the rates as per the latest KSEB tariffs. (Prices are per kWh/unit)</p><div class="space-y-4"><div><label for="tariff-peak" class="block text-sm font-medium text-gray-300 mb-1">Peak Rate (6pm-10pm)</label><input type="number" step="0.01" id="tariff-peak" class="w-full p-3 form-input"></div><div><label for="tariff-normal" class="block text-sm font-medium text-gray-300 mb-1">Normal Rate (6am-6pm)</label><input type="number" step="0.01" id="tariff-normal" class="w-full p-3 form-input"></div><div><label for="tariff-offpeak" class="block text-sm font-medium text-gray-300 mb-1">Off-Peak Rate (10pm-6am)</label><input type="number" step="0.01" id="tariff-offpeak" class="w-full p-3 form-input"></div></div></div>
+                    <div class="card mt-6"><h2 class="text-xl font-bold mb-4">Solar Tariffs</h2><p class="text-sm text-gray-400 mb-6">Set the prices for solar energy exchange with KSEB.</p><div class="space-y-4"><div><label for="tariff-export" class="block text-sm font-medium text-gray-300 mb-1">Export Rate (₹ per kWh sold to KSEB)</label><input type="number" step="0.01" id="tariff-export" class="w-full p-3 form-input"></div><div><label for="tariff-import" class="block text-sm font-medium text-gray-300 mb-1">Import Rate (₹ per kWh bought from KSEB)</label><input type="number" step="0.01" id="tariff-import" class="w-full p-3 form-input"></div></div></div>
+                    <button type="submit" class="w-full btn-primary mt-6">Save All Settings</button>
+                </form>
+
+                <div class="card mt-6"><h2 class="text-xl font-bold mb-4">Application Information</h2><div class="flex justify-between items-center"><div><p class="text-gray-400">Current Version</p><p class="font-semibold">v1.4.0</p></div><button id="check-update-btn" class="btn-primary btn-secondary">Check for Updates</button></div></div>
+                
+                <!-- NEW: Logout Button -->
+                <div class="mt-6">
+                    <button id="logout-btn" class="w-full btn-primary btn-danger">Logout</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700"><div class="container mx-auto flex justify-around"><button class="nav-item active flex-1 flex flex-col items-center p-3" data-page="dashboard-page"><i data-lucide="home" class="h-5 w-5"></i><span class="text-xs mt-1">Home</span></button><button class="nav-item flex-1 flex flex-col items-center p-3" data-page="pay-bill-page"><i data-lucide="credit-card" class="h-5 w-5"></i><span class="text-xs mt-1">Pay Bill</span></button><button class="nav-item flex-1 flex flex-col items-center p-3" data-page="recommendations-page"><i data-lucide="lightbulb" class="h-5 w-5"></i><span class="text-xs mt-1">Suggest</span></button><button class="nav-item flex-1 flex flex-col items-center p-3" data-page="complaints-page"><i data-lucide="message-square-warning" class="h-5 w-5"></i><span class="text-xs mt-1">Complain</span></button><button class="nav-item flex-1 flex flex-col items-center p-3" data-page="settings-page"><i data-lucide="settings" class="h-5 w-5"></i><span class="text-xs mt-1">Settings</span></button></div></nav>
+    </div>
+
+    <script>
+        // --- INITIALIZATION & SETTINGS ---
+        let charts = {};
+        let currentSlab = 0, currentTimeSlab = null, usageAlertTriggered = false;
+        
+        const settings = {
+            tod_peak: 10.00, tod_normal: 7.50, tod_offpeak: 5.00,
+            solar_export: 3.25, solar_import: 7.50,
+        };
+
+        function saveSettings() {
+            settings.tod_peak = parseFloat(document.getElementById('tariff-peak').value);
+            settings.tod_normal = parseFloat(document.getElementById('tariff-normal').value);
+            settings.tod_offpeak = parseFloat(document.getElementById('tariff-offpeak').value);
+            settings.solar_export = parseFloat(document.getElementById('tariff-export').value);
+            settings.solar_import = parseFloat(document.getElementById('tariff-import').value);
+            localStorage.setItem('ksebAppSettings', JSON.stringify(settings));
+            alert('Settings have been saved successfully.');
+        }
+
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('ksebAppSettings');
+            if (savedSettings) Object.assign(settings, JSON.parse(savedSettings));
+            document.getElementById('tariff-peak').value = settings.tod_peak.toFixed(2);
+            document.getElementById('tariff-normal').value = settings.tod_normal.toFixed(2);
+            document.getElementById('tariff-offpeak').value = settings.tod_offpeak.toFixed(2);
+            document.getElementById('tariff-export').value = settings.solar_export.toFixed(2);
+            document.getElementById('tariff-import').value = settings.solar_import.toFixed(2);
+        }
+
+        // --- AUTHENTICATION ---
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        function checkLoginState() {
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                loginScreen.style.display = 'none';
+                appContainer.classList.remove('hidden');
+                startApp();
+            } else {
+                loginScreen.style.display = 'flex';
+                appContainer.classList.add('hidden');
+            }
+        }
+        
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const consumerNumber = document.getElementById('consumer-number').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            
+            if (consumerNumber.length !== 13) {
+                errorEl.textContent = 'Consumer number must be 13 digits.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!password) {
+                 errorEl.textContent = 'Password cannot be empty.';
+                 errorEl.classList.remove('hidden');
+                return;
+            }
+            // In a real app, you would validate credentials with a server.
+            // Here, we'll just simulate a successful login.
+            localStorage.setItem('isLoggedIn', 'true');
+            checkLoginState();
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('isLoggedIn');
+            // Stop data fetching loops if any are running
+            if (window.mainLoopTimeout) clearTimeout(window.mainLoopTimeout);
+            if (window.timeSlabInterval) clearInterval(window.timeSlabInterval);
+            checkLoginState();
+        });
+
+        // --- APP STARTUP LOGIC ---
+        function startApp() {
+            lucide.createIcons();
+            loadSettings();
+            createCharts();
+            mainLoop();
+            window.timeSlabInterval = setInterval(checkTimeSlab, 5000);
+            checkTimeSlab();
+        }
+
+        // --- NAVIGATION, DATA FETCHING, ALERTS, UI UPDATES, FORMS ---
+        // (All other functions from the previous version are assumed to be here)
+        const navItems = document.querySelectorAll('.nav-item');
+        const pages = document.querySelectorAll('.page');
+        navItems.forEach(item => { item.addEventListener('click', () => { const targetPage = item.dataset.page; navItems.forEach(i => i.classList.remove('active')); item.classList.add('active'); pages.forEach(p => p.classList.remove('active')); document.getElementById(targetPage).classList.add('active'); }); });
+        async function fetchDataFromCloud() { if (typeof window.monthlyConsumption === 'undefined') window.monthlyConsumption = 98; window.monthlyConsumption += Math.random() * 0.5; const mockData = { realtime_kw: 1.2 + Math.random() * 2.5, historical_average_kw: 1.8, monthly_consumption_kwh: window.monthlyConsumption, appliance_breakdown: { 'Cooling (AC)': 45, 'Water Heater': 20, 'Refrigerator': 15, 'Lighting': 10, 'Other': 10 }, daily_consumption_last_30_days: Array.from({ length: 30 }, (_, i) => 5 + Math.random() * 10 + (i > 20 ? i/5 : 0)), billing: { current_bill_rs: 1450.75, due_date: '2025-10-28' }, tod_usage: { peak: 4.2, normal: 8.5, offpeak: 2.1 }, solar: { generated: 15.3, exported: 10.1, imported: 3.5 }, timestamp: new Date().toISOString() }; return new Promise(resolve => setTimeout(() => resolve(mockData), 1500)); }
+        function displayAlert(message, type = 'info') { const alertContainer = document.getElementById('alert-container'); let bgColor, textColor, icon; switch(type) { case 'warning': bgColor = 'bg-yellow-500/20'; textColor = 'text-yellow-300'; icon = 'smartphone'; break; case 'danger': bgColor = 'bg-red-500/20'; textColor = 'text-red-300'; icon = 'alert-triangle'; break; default: bgColor = 'bg-blue-500/20'; textColor = 'text-blue-300'; icon = 'info'; } const alertDiv = document.createElement('div'); alertDiv.className = `alert-banner flex items-center ${bgColor} p-3 rounded-lg ${textColor}`; alertDiv.innerHTML = `<i data-lucide="${icon}" class="h-5 w-5 mr-3 flex-shrink-0"></i><p class="text-sm">${message}</p>`; alertContainer.insertBefore(alertDiv, alertContainer.firstChild); lucide.createIcons(); setTimeout(() => { alertDiv.style.transition = 'opacity 0.5s ease'; alertDiv.style.opacity = '0'; setTimeout(() => alertDiv.remove(), 500); }, 8000); }
+        function checkTimeSlab() { const hour = new Date().getHours(); let newSlab, statusText, statusColor; if (hour >= 18 && hour < 22) { newSlab = 'peak'; statusText = 'Peak Hours'; statusColor = 'text-red-400'; } else if (hour >= 6 && hour < 18) { newSlab = 'normal'; statusText = 'Normal Hours'; statusColor = 'text-blue-400'; } else { newSlab = 'offpeak'; statusText = 'Off-Peak Hours'; statusColor = 'text-green-400'; } const statusElement = document.getElementById('time-of-day-status'); statusElement.textContent = statusText; statusElement.className = `text-sm font-bold ${statusColor}`; if (currentTimeSlab !== null && currentTimeSlab !== newSlab) { displayAlert(`<strong>${statusText} started.</strong> Electricity is now charged at the ${newSlab} rate.`); } currentTimeSlab = newSlab; }
+        function checkUsageAnomaly(currentUsage, averageUsage) { if (currentUsage > averageUsage * 1.5 && !usageAlertTriggered) { displayAlert(`<strong>High Usage Alert:</strong> Your current consumption (${currentUsage.toFixed(1)} kW) is higher than usual (${averageUsage.toFixed(1)} kW).`, 'danger'); usageAlertTriggered = true; setTimeout(() => { usageAlertTriggered = false; }, 300000); } }
+        function createCharts() { /* Placeholder for chart creation logic */ }
+        function updateDashboardUI(data) { document.getElementById('realtime-usage-value').textContent = data.realtime_kw.toFixed(2); document.getElementById('solar-generated').textContent = `${data.solar.generated.toFixed(1)} kWh`; document.getElementById('solar-exported').textContent = `${data.solar.exported.toFixed(1)} kWh`; document.getElementById('solar-imported').textContent = `${data.solar.imported.toFixed(1)} kWh`; document.getElementById('solar-exported-value').textContent = `₹${(data.solar.exported * settings.solar_export).toFixed(2)}`; document.getElementById('solar-imported-value').textContent = `₹${(data.solar.imported * settings.solar_import).toFixed(2)}`; const totalTod = data.tod_usage.peak + data.tod_usage.normal + data.tod_usage.offpeak; document.getElementById('tod-peak-value').textContent = `${data.tod_usage.peak.toFixed(1)} kWh`; document.getElementById('tod-normal-value').textContent = `${data.tod_usage.normal.toFixed(1)} kWh`; document.getElementById('tod-offpeak-value').textContent = `${data.tod_usage.offpeak.toFixed(1)} kWh`; document.getElementById('tod-peak-bar').style.width = `${(data.tod_usage.peak / totalTod) * 100}%`; document.getElementById('tod-normal-bar').style.width = `${(data.tod_usage.normal / totalTod) * 100}%`; document.getElementById('tod-offpeak-bar').style.width = `${(data.tod_usage.offpeak / totalTod) * 100}%`; const billAmount = `₹${data.billing.current_bill_rs.toFixed(2)}`; const dueDate = new Date(data.billing.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); document.getElementById('billing-current-bill').textContent = billAmount; document.getElementById('billing-due-date').textContent = dueDate; document.getElementById('payment-amount').textContent = billAmount; document.getElementById('payment-due-date').textContent = `Due by ${dueDate}`; checkUsageAnomaly(data.realtime_kw, data.historical_average_kw); }
+        document.getElementById('settings-form').addEventListener('submit', (e) => { e.preventDefault(); saveSettings(); });
+        document.getElementById('check-update-btn').addEventListener('click', () => { alert('You are running the latest version of Smart Energy Guardian (v1.4.0).'); });
+        document.getElementById('payment-method').addEventListener('change', (e) => { const isCard = e.target.value === 'card'; document.getElementById('card-details').classList.toggle('hidden', !isCard); document.getElementById('upi-details').classList.toggle('hidden', isCard); });
+        document.getElementById('recommendation-form').addEventListener('submit', (e) => { e.preventDefault(); alert('Thank you! Your recommendation has been submitted.'); e.target.reset(); });
+        document.getElementById('complaint-form').addEventListener('submit', (e) => { e.preventDefault(); alert('Your complaint has been filed.'); e.target.reset(); });
+        document.getElementById('payment-form').addEventListener('submit', (e) => { e.preventDefault(); const amount = document.getElementById('payment-amount').textContent; alert(`Payment of ${amount} successful!`); e.target.reset(); document.querySelector('.nav-item[data-page="dashboard-page"]').click(); });
+        async function mainLoop() { try { const data = await fetchDataFromCloud(); if (data) updateDashboardUI(data); } catch (error) { console.error("Main loop error:", error); } window.mainLoopTimeout = setTimeout(mainLoop, 2000); }
+        
+        // --- APP ENTRY POINT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            checkLoginState();
+        });
+    </script>
+</body>
+</html>
+
+
